@@ -569,7 +569,7 @@
   function onPointerDown(e) {
   if (foundWords.size === WORDS.length) return;
   e.preventDefault();
-  document.body.classList.add('selecting'); // <--- Añadido
+  document.body.classList.add('selecting');
   clearSelection();
   isSelecting = true;
   const cell = getCellFromEvent(e);
@@ -578,10 +578,11 @@
   selectedCells.push({ row: cell.row, col: cell.col });
   cell.element.classList.add("selected");
 }
- 
-  function onPointerMove(e) {
+
+function onPointerMove(e) {
   if (!isSelecting) return;
-  if (e.pointerType !== 'touch' && e.pointerType !== 'mouse') return; // <--- Añadido
+  if (e.pointerType !== 'touch' && e.pointerType !== 'mouse') return;
+  if (e.pointerType === 'touch' && e.isPrimary === false) return; // Ignorar dedos secundarios
   e.preventDefault();
   const cell = getCellFromEvent(e);
   if (!cell) return;
@@ -591,10 +592,11 @@
     grid[cell.row][cell.col].element.classList.add("selected");
   }
 }
-  function onPointerUp() {
+
+function onPointerUp() {
   if (!isSelecting) return;
   isSelecting = false;
-  document.body.classList.remove('selecting'); // <--- Añadido
+  document.body.classList.remove('selecting');
   if (selectedCells.length > 1) {
     if (!checkSelectedWord()) {
       setTimeout(clearSelection, 300);
@@ -603,7 +605,6 @@
     clearSelection();
   }
 }
-
   function provideHint() {
     if (foundWords.size === WORDS.length) {
       hintEl.textContent = "¡Ya encontraste todas las palabras!";
