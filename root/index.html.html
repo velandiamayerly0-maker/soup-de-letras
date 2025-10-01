@@ -5,6 +5,28 @@
 <title>Sopa de Letras 25x25</title>
 <base href="/soup-de-letras/">
 <style>
+
+    .cell {
+      /* Cambia touch-action a none para mejor soporte táctil */
+      touch-action: none;
+      /* otras reglas que ya tienes */
+    }
+
+    #grid {
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    body.selecting {
+      touch-action: none;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
     body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -85,6 +107,7 @@
     cursor: default;
     transform: scale(1.02);
   }
+    
   #words-list {
     background: #f8f9fa;
     padding: 20px;
@@ -559,52 +582,55 @@
   }
 
   function getCellFromEvent(e) {
-    const target = e.target;
-    if (!target.classList.contains("cell")) return null;
-    const row = parseInt(target.dataset.row);
-    const col = parseInt(target.dataset.col);
-    return { row, col, element: target };
-  }
+      let target = e.target;
+      if (e.touches && e.touches.length > 0) {
+        target = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      if (!target || !target.classList.contains("cell")) return null;
+      const row = parseInt(target.dataset.row);
+      const col = parseInt(target.dataset.col);
+      return { row, col, element: target };
+    }
 
   function onPointerDown(e) {
-  if (foundWords.size === WORDS.length) return;
-  e.preventDefault();
-  document.body.classList.add('selecting');
-  clearSelection();
-  isSelecting = true;
-  const cell = getCellFromEvent(e);
-  if (!cell) return;
-  startCell = { row: cell.row, col: cell.col };
-  selectedCells.push({ row: cell.row, col: cell.col });
-  cell.element.classList.add("selected");
-}
-
-function onPointerMove(e) {
-  if (!isSelecting) return;
-  if (e.pointerType !== 'touch' && e.pointerType !== 'mouse') return;
-  if (e.pointerType === 'touch' && e.isPrimary === false) return; // Ignorar dedos secundarios
-  e.preventDefault();
-  const cell = getCellFromEvent(e);
-  if (!cell) return;
-  if (selectedCells.find(c => c.row === cell.row && c.col === cell.col)) return;
-  if (isNextCellValid(cell.row, cell.col)) {
-    selectedCells.push({ row: cell.row, col: cell.col });
-    grid[cell.row][cell.col].element.classList.add("selected");
-  }
-}
-
-function onPointerUp() {
-  if (!isSelecting) return;
-  isSelecting = false;
-  document.body.classList.remove('selecting');
-  if (selectedCells.length > 1) {
-    if (!checkSelectedWord()) {
-      setTimeout(clearSelection, 300);
+      e.preventDefault();
+      if (foundWords.size === WORDS.length) return;
+      document.body.classList.add('selecting');
+      clearSelection();
+      isSelecting = true;
+      const cell = getCellFromEvent(e);
+      if (!cell) return;
+      startCell = { row: cell.row, col: cell.col };
+      selectedCells.push({ row: cell.row, col: cell.col });
+      cell.element.classList.add("selected");
     }
-  } else {
-    clearSelection();
-  }
-}
+
+    function onPointerMove(e) {
+      if (!isSelecting) return;
+      e.preventDefault();
+      const cell = getCellFromEvent(e);
+      if (!cell) return;
+      if (selectedCells.find(c => c.row === cell.row && c.col === cell.col)) return;
+      if (isNextCellValid(cell.row, cell.col)) {
+        selectedCells.push({ row: cell.row, col: cell.col });
+        grid[cell.row][cell.col].element.classList.add("selected");
+      }
+    }
+
+    function onPointerUp(e) {
+      if (!isSelecting) return;
+      e.preventDefault();
+      isSelecting = false;
+      document.body.classList.remove('selecting');
+      if (selectedCells.length > 1) {
+        if (!checkSelectedWord()) {
+          setTimeout(clearSelection, 300);
+        }
+      } else {
+        clearSelection();
+      }
+    }
+
   function provideHint() {
     if (foundWords.size === WORDS.length) {
       hintEl.textContent = "¡Ya encontraste todas las palabras!";
@@ -652,6 +678,9 @@ function onPointerUp() {
   gridEl.addEventListener("pointerdown", onPointerDown, { passive: false });
   gridEl.addEventListener("pointermove", onPointerMove, { passive: false });
   document.addEventListener("pointerup", onPointerUp, { passive: false });
+  gridEl.addEventListener("touchstart", onPointerDown, { passive: false });
+  gridEl.addEventListener("touchmove", onPointerMove, { passive: false });
+  document.addEventListener("touchend", onPointerUp, { passive: false });  
 
   btnHint.addEventListener("click", provideHint);
   btnRestart.addEventListener("click", () => {
