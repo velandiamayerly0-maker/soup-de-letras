@@ -68,7 +68,7 @@
     border-radius: 3px;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    touch-action: manipulation; /* Añadido para mejorar la respuesta táctil */
+    touch-action: none; /* Añadido para mejorar la respuesta táctil */
   }
   .cell:hover {
     transform: scale(1.05);
@@ -579,17 +579,17 @@
   }
 
   function onPointerMove(e) {
-    if (!isSelecting) return;
-    e.preventDefault();
-    const cell = getCellFromEvent(e);
-    if (!cell) return;
-    if (selectedCells.find(c => c.row === cell.row && c.col === cell.col)) return;
-    if (isNextCellValid(cell.row, cell.col)) {
-      selectedCells.push({ row: cell.row, col: cell.col });
-      grid[cell.row][cell.col].element.classList.add("selected");
-    }
+  if (!isSelecting) return;
+  if (e.pointerType !== 'touch' && e.pointerType !== 'mouse') return; // <--- Añadido
+  e.preventDefault();
+  const cell = getCellFromEvent(e);
+  if (!cell) return;
+  if (selectedCells.find(c => c.row === cell.row && c.col === cell.col)) return;
+  if (isNextCellValid(cell.row, cell.col)) {
+    selectedCells.push({ row: cell.row, col: cell.col });
+    grid[cell.row][cell.col].element.classList.add("selected");
   }
-
+}
   function onPointerUp() {
     if (!isSelecting) return;
     isSelecting = false;
