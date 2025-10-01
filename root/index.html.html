@@ -567,17 +567,18 @@
   }
 
   function onPointerDown(e) {
-    if (foundWords.size === WORDS.length) return;
-    e.preventDefault();
-    clearSelection();
-    isSelecting = true;
-    const cell = getCellFromEvent(e);
-    if (!cell) return;
-    startCell = { row: cell.row, col: cell.col };
-    selectedCells.push({ row: cell.row, col: cell.col });
-    cell.element.classList.add("selected");
-  }
-
+  if (foundWords.size === WORDS.length) return;
+  e.preventDefault();
+  document.body.classList.add('selecting'); // <--- Añadido
+  clearSelection();
+  isSelecting = true;
+  const cell = getCellFromEvent(e);
+  if (!cell) return;
+  startCell = { row: cell.row, col: cell.col };
+  selectedCells.push({ row: cell.row, col: cell.col });
+  cell.element.classList.add("selected");
+}
+ 
   function onPointerMove(e) {
   if (!isSelecting) return;
   if (e.pointerType !== 'touch' && e.pointerType !== 'mouse') return; // <--- Añadido
@@ -591,16 +592,17 @@
   }
 }
   function onPointerUp() {
-    if (!isSelecting) return;
-    isSelecting = false;
-    if (selectedCells.length > 1) {
-      if (!checkSelectedWord()) {
-        setTimeout(clearSelection, 300);
-      }
-    } else {
-      clearSelection();
+  if (!isSelecting) return;
+  isSelecting = false;
+  document.body.classList.remove('selecting'); // <--- Añadido
+  if (selectedCells.length > 1) {
+    if (!checkSelectedWord()) {
+      setTimeout(clearSelection, 300);
     }
+  } else {
+    clearSelection();
   }
+}
 
   function provideHint() {
     if (foundWords.size === WORDS.length) {
@@ -646,9 +648,9 @@
     startTimer();
   }
 
-  gridEl.addEventListener("pointerdown", onPointerDown);
-  gridEl.addEventListener("pointermove", onPointerMove);
-  document.addEventListener("pointerup", onPointerUp);
+  gridEl.addEventListener("pointerdown", onPointerDown, { passive: false });
+  gridEl.addEventListener("pointermove", onPointerMove, { passive: false });
+  document.addEventListener("pointerup", onPointerUp, { passive: false });
 
   btnHint.addEventListener("click", provideHint);
   btnRestart.addEventListener("click", () => {
