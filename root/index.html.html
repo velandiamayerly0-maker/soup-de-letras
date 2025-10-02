@@ -101,21 +101,21 @@
   height: 100%;
 }
 
-  .cell:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  }
+  .cell:hover:not(.found) {
+  transform: scale(1.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
   .cell.selected {
-    background: #3498db;
-    color: white;
-    transform: scale(1.05);
-  }
-  .cell.found {
-    background: #27ae60;
-    color: white;
-    cursor: default;
-    transform: scale(1.02);
-  }
+  background: #3498db !important;
+  color: white;
+  transform: scale(1.05);
+}
+.cell.found {
+  background: #27ae60 !important;
+  color: white;
+  cursor: default;
+  transform: scale(1.02);
+}
     
   #words-list {
     background: #f8f9fa;
@@ -254,19 +254,46 @@
       font-size: 14px;
     }
   }
-  @media (max-width: 900px) {
-    #words-list ul {
-      columns: 1;
-    }
-    .game-info {
-      flex-direction: column;
-    }
+  /* Media queries limpias (solo layout, sin tamaños fijos para evitar conflictos) */
+@media (max-width: 900px) {
+  #words-list ul {
+    columns: 1;
   }
-  @media (max-width: 700px) {
-    #game-container {
-      flex-direction: column;
-      align-items: center;
-    }
+  .game-info {
+    flex-direction: column;
+  }
+  #game-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  #words-list {
+    min-width: unset;
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  h1 {
+    font-size: 2rem;
+  }
+  .subtitle {
+    font-size: 1rem;
+  }
+  .container {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  #controls {
+    gap: 10px;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+}
+  
     #grid {
       /* Aumentar el tamaño de las celdas para facilitar el toque en móviles */
       grid-template-columns: repeat(25, 32px); /* Aumentado de 20px a 32px */
@@ -481,9 +508,53 @@
         if (cell.found) cellEl.classList.add("found");
         cell.element = cellEl;
         gridEl.appendChild(cellEl);
+
+  // Fallback para clicks simples (adaptación del snippet Java): selección adyacente
+        cellEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // No interferir con drag
+        if (foundWords.size === WORDS.length || cell.found) return; // Bloqueo
+
+        const clickedCell = { row: r, col: c };
+        if (isSelecting) return; // Priorizar drag/touch
+
+        if (selectedCells.length === 0) {
+      // Iniciar selección
+        clearSelection();
+        selectedCells.push(clickedCell);
+        cellEl.classList.add("selected");
+        startCell = clickedCell;
+        } else {
+      // Verificar adyacente (como en Java: Manhattan <=1)
+       const lastCell = selectedCells[selectedCells.length - 1];
+       const dr = Math.abs(clickedCell.row - lastCell.row);
+       const dc = Math.abs(clickedCell.col - lastCell.col);
+       if ((dr <= 1 && dc <= 1) && (dr + dc > 0)) { // Adyacente, no misma celda
+       if (selectedCells.find(c => c.row === clickedCell.row && c.col === clickedCell.col)) return;
+        // Calcular dirección si es la segunda
+        if (selectedCells.length === 1) {
+          const dRow = clickedCell.row - startCell.row;
+          const dCol = clickedCell.col - startCell.col;
+          const divisor = gcd(Math.abs(dRow), Math.abs(dCol)) || 1;
+          directionVector = { y: dRow / divisor, x: dCol / divisor };
+        } else if (!isNextCellValid(clickedCell.row, clickedCell.col)) return;
+
+        selectedCells.push(clickedCell);
+        grid[clickedCell.row][clickedCell.col].element.classList.add("selected");
+        // Verificar inmediatamente si >1 celdas
+        if (selectedCells.length > 1) {
+          setTimeout(() => checkSelectedWord(), 100); // Delay para simular "up"
+        }
+      } else {
+        clearSelection(); // No adyacente: resetear
+        selectedCells.push(clickedCell);
+        cellEl.classList.add("selected");
+        startCell = clickedCell;
       }
     }
-  }
+  });
+}
+}
 
   function renderWordList() {
     wordsUl.innerHTML = "";
@@ -560,14 +631,15 @@
   }
 
   function clearSelection() {
-    for (const cell of selectedCells) {
-      if (!grid[cell.row][cell.col].found) {
-        grid[cell.row][cell.col].element.classList.remove("selected");
-      }
+  isSelecting = false; // Resetear estado (adaptación para limpieza Java)
+  for (const cell of selectedCells) {
+    if (!grid[cell.row][cell.col].found) {
+      grid[cell.row][cell.col].element.classList.remove("selected");
     }
-    selectedCells = [];
-    directionVector = null;
   }
+  selectedCells = [];
+  directionVector = null;
+}
 
   function gcd(a, b) {
     return b === 0 ? a : gcd(b, a % b);
@@ -602,30 +674,29 @@
     }
 
   function onPointerDown(e) {
-      e.preventDefault();
-      if (foundWords.size === WORDS.length) return;
-      document.body.classList.add('selecting');
-      clearSelection();
-      isSelecting = true;
-      const cell = getCellFromEvent(e);
-      if (!cell) return;
-      startCell = { row: cell.row, col: cell.col };
-      selectedCells.push({ row: cell.row, col: cell.col });
-      cell.element.classList.add("selected");
-    }
-
+    e.preventDefault();
+    if (foundWords.size === WORDS.length) return;
+    const cell = getCellFromEvent(e);
+    if (!cell || grid[cell.row][cell.col].found) return; // Bloqueo: no seleccionar celdas found (adaptación Java)
+    document.body.classList.add('selecting');
+    clearSelection();
+    isSelecting = true;
+    startCell = { row: cell.row, col: cell.col };
+    selectedCells.push({ row: cell.row, col: cell.col });
+    cell.element.classList.add("selected");
+}
     function onPointerMove(e) {
-      if (!isSelecting) return;
-      e.preventDefault();
-      const cell = getCellFromEvent(e);
-      if (!cell) return;
-      if (selectedCells.find(c => c.row === cell.row && c.col === cell.col)) return;
-      if (isNextCellValid(cell.row, cell.col)) {
-        selectedCells.push({ row: cell.row, col: cell.col });
-        grid[cell.row][cell.col].element.classList.add("selected");
-      }
-    }
-
+  if (!isSelecting) return;
+  e.preventDefault();
+  const cell = getCellFromEvent(e);
+  if (!cell || grid[cell.row][cell.col].found) return; // Bloqueo: no agregar celdas found
+  if (selectedCells.find(c => c.row === cell.row && c.col === cell.col)) return;
+  if (isNextCellValid(cell.row, cell.col)) {
+    selectedCells.push({ row: cell.row, col: cell.col });
+    grid[cell.row][cell.col].element.classList.add("selected");
+  }
+}
+    
     function onPointerUp(e) {
       if (!isSelecting) return;
       e.preventDefault();
@@ -672,25 +743,35 @@
   }
 
   function initGame() {
-    clearInterval(timerInterval);
-    foundWords.clear();
-    hintEl.textContent = "";
-    initGrid();
-    placeAllWords();
-    fillEmptyCells();
-    renderGrid();
-    renderWordList();
-    updateScoreboard();
-    startTimer();
-  }
+  clearInterval(timerInterval);
+  foundWords.clear();
+  selectedCells = []; // Limpieza adicional (adaptación Java)
+  isSelecting = false;
+  directionVector = null;
+  startCell = null;
+  hintEl.textContent = "";
+  initGrid();
+  placeAllWords();
+  fillEmptyCells();
+  renderGrid();
+  renderWordList();
+  updateScoreboard();
+  startTimer();
+}
 
-  gridEl.addEventListener("pointerdown", onPointerDown, { passive: false });
-  gridEl.addEventListener("pointermove", onPointerMove, { passive: false });
+  function attachEventListeners() {
+  // Remover listeners viejos si existen (para re-render)
+  gridEl.replaceWith(gridEl.cloneNode(true));
+  const newGridEl = document.getElementById("grid"); // Re-asignar
+  // Re-adjuntar listeners principales
+  newGridEl.addEventListener("pointerdown", onPointerDown, { passive: false });
+  newGridEl.addEventListener("pointermove", onPointerMove, { passive: false });
   document.addEventListener("pointerup", onPointerUp, { passive: false });
-  gridEl.addEventListener("touchstart", onPointerDown, { passive: false });
-  gridEl.addEventListener("touchmove", onPointerMove, { passive: false });
-  document.addEventListener("touchend", onPointerUp, { passive: false });  
-
+  newGridEl.addEventListener("touchstart", onPointerDown, { passive: false });
+  newGridEl.addEventListener("touchmove", onPointerMove, { passive: false });
+  document.addEventListener("touchend", onPointerUp, { passive: false });
+}
+ 
   btnHint.addEventListener("click", provideHint);
   btnRestart.addEventListener("click", () => {
     initGame();
